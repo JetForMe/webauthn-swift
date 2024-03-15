@@ -30,6 +30,12 @@ public struct RegistrationCredential {
 
     /// The attestation response from the authenticator.
     public let attestationResponse: AuthenticatorAttestationResponse
+	
+	public init(type: String, rawID: [UInt8], attestationResponse: AuthenticatorAttestationResponse) {
+		self.type = type
+		self.rawID = rawID
+		self.attestationResponse = attestationResponse
+	}
 }
 
 extension RegistrationCredential: Decodable {
