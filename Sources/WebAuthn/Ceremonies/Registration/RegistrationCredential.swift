@@ -20,7 +20,7 @@ import Crypto
 /// When decoding using `Decodable`, the `rawID` is decoded from base64url to bytes.
 public struct RegistrationCredential {
     /// The credential ID of the newly created credential.
-    public let id: URLEncodedBase64
+//    public let id: URLEncodedBase64
 
     /// Value will always be "public-key" (for now)
     public let type: String
@@ -36,7 +36,7 @@ extension RegistrationCredential: Decodable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
-        id = try container.decode(URLEncodedBase64.self, forKey: .id)
+//        id = try container.decode(URLEncodedBase64.self, forKey: .id)
         type = try container.decode(String.self, forKey: .type)
         guard let rawID = try container.decode(URLEncodedBase64.self, forKey: .rawID).decodedBytes else {
             throw DecodingError.dataCorruptedError(
@@ -59,8 +59,8 @@ extension RegistrationCredential: Decodable {
 
 /// The processed response received from `navigator.credentials.create()`.
 struct ParsedCredentialCreationResponse {
-    let id: URLEncodedBase64
-    let rawID: Data
+//    let id: URLEncodedBase64
+    let rawID: [UInt8]
     /// Value will always be "public-key" (for now)
     let type: String
     let raw: AuthenticatorAttestationResponse
@@ -68,8 +68,8 @@ struct ParsedCredentialCreationResponse {
 
     /// Create a `ParsedCredentialCreationResponse` from a raw `CredentialCreationResponse`.
     init(from rawResponse: RegistrationCredential) throws {
-        id = rawResponse.id
-        rawID = Data(rawResponse.rawID)
+//        id = rawResponse.id
+        rawID = rawResponse.rawID//Data(rawResponse.rawID)
 
         guard rawResponse.type == "public-key" else {
             throw WebAuthnError.invalidCredentialCreationType

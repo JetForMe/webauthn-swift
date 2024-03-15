@@ -21,7 +21,7 @@ public struct Credential {
     public let type: String
 
     /// base64 encoded String of the credential ID bytes
-    public let id: String
+    public let id: [UInt8]
 
     /// The public key for this certificate
     public let publicKey: [UInt8]
