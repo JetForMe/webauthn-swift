@@ -161,7 +161,8 @@ public struct PublicKeyCredentialUserEntity: Codable {
 	public init(from decoder: Decoder) throws {
 		let container = try decoder.container(keyedBy: CodingKeys.self)
 		
-		self.id = try container.decode([UInt8].self, forKey: .id)
+		let idBase64 = try container.decode(URLEncodedBase64.self, forKey: .id)
+		self.id = idBase64.decodedBytes ?? []			//	TODO: Throw if empty?
 		self.name = try container.decode(String.self, forKey: .name)
 		self.displayName = try container.decode(String.self, forKey: .displayName)
 	}
@@ -180,3 +181,10 @@ public struct PublicKeyCredentialUserEntity: Codable {
         case displayName
     }
 }
+
+//
+//	Primarily for testing…
+//
+
+extension PublicKeyCredentialUserEntity : Equatable {}
+extension PublicKeyCredentialRpEntity : Equatable {}

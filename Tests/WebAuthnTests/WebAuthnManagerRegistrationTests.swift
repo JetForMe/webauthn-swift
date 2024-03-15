@@ -352,4 +352,28 @@ final class WebAuthnManagerRegistrationTests: XCTestCase {
             confirmCredentialIDNotRegisteredYet: confirmCredentialIDNotRegisteredYet
         )
     }
+    
+    func
+    testPublicKeyCredentialCreationOptionsCoding()
+    	throws
+	{
+		let options = PublicKeyCredentialCreationOptions(
+						challenge: [1,2,3,4,5],
+						user: .init(id: [5,4,3,2,1], name: "testname", displayName: "displayName"),
+						relyingParty: .init(id: "relyingPartyID", name: "relyingPartyName"),
+						publicKeyCredentialParameters: [.init(alg: .algES256)],
+						timeoutInMilliseconds: 123,
+						attestation: .none)
+		
+		let json = try JSONEncoder().encode(options)
+		let decodedOptions = try JSONDecoder().decode(PublicKeyCredentialCreationOptions.self, from: json)
+		
+		XCTAssertEqual(options.challenge, decodedOptions.challenge)
+		XCTAssertEqual(options.user, decodedOptions.user)
+		XCTAssertEqual(options.relyingParty, decodedOptions.relyingParty)
+		XCTAssertEqual(options.publicKeyCredentialParameters, decodedOptions.publicKeyCredentialParameters)
+		XCTAssertEqual(options.timeoutInMilliseconds, decodedOptions.timeoutInMilliseconds)
+		XCTAssertEqual(options.attestation, decodedOptions.attestation)
+	}
 }
+
