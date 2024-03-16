@@ -188,7 +188,7 @@ public struct WebAuthnManager {
         )
 
         return VerifiedAuthentication(
-            credentialID: credential.id,
+            credentialID: credential.rawID,
             newSignCount: parsedAssertion.authenticatorData.counter,
             credentialDeviceType: parsedAssertion.authenticatorData.flags.deviceType,
             credentialBackedUp: parsedAssertion.authenticatorData.flags.isCurrentlyBackedUp

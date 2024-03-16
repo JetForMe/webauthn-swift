@@ -22,7 +22,7 @@ public struct VerifiedAuthentication {
     }
 
     /// The credential id associated with the public key
-    public let credentialID: URLEncodedBase64
+    public let credentialID: [UInt8]
     /// The updated sign count after the authentication ceremony
     public let newSignCount: UInt32
     /// Whether the authenticator is a single- or multi-device authenticator. This value is determined after

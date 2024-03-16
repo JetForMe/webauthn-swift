@@ -18,9 +18,6 @@ import Foundation
 ///
 /// When decoding using `Decodable`, the `rawID` is decoded from base64url to bytes.
 public struct AuthenticationCredential {
-    /// The credential ID of the newly created credential.
-    public let id: URLEncodedBase64
-
     /// The raw credential ID of the newly created credential.
     public let rawID: [UInt8]
 
@@ -33,13 +30,19 @@ public struct AuthenticationCredential {
 
     /// Value will always be "public-key" (for now)
     public let type: String
+    
+	public init(rawID: [UInt8], response: AuthenticatorAssertionResponse, authenticatorAttachment: String?, type: String) {
+		self.rawID = rawID
+		self.response = response
+		self.authenticatorAttachment = authenticatorAttachment
+		self.type = type
+	}
 }
 
 extension AuthenticationCredential: Decodable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
-        id = try container.decode(URLEncodedBase64.self, forKey: .id)
         rawID = try container.decodeBytesFromURLEncodedBase64(forKey: .rawID)
         response = try container.decode(AuthenticatorAssertionResponse.self, forKey: .response)
         authenticatorAttachment = try container.decodeIfPresent(String.self, forKey: .authenticatorAttachment)
@@ -47,7 +50,6 @@ extension AuthenticationCredential: Decodable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id
         case rawID = "rawId"
         case response
         case authenticatorAttachment
