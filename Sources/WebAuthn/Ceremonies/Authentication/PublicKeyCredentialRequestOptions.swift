@@ -62,7 +62,14 @@ public struct PublicKeyCredentialRequestOptions: Codable, Sendable {
 		
 		let challengeBase64 = try container.decode(URLEncodedBase64.self, forKey: .challenge)
 		self.challenge = challengeBase64.decodedBytes ?? []			//	TODO: Throw if empty?
-		self.timeout = try container.decodeIfPresent(Duration.self, forKey: .timeout)
+		if let timeoutMS = try container.decodeIfPresent(UInt32.self, forKey: .timeout)
+		{
+			self.timeout = .milliseconds(timeoutMS)
+		}
+		else
+		{
+			self.timeout = nil
+		}
 		self.relyingPartyID = try container.decode(String.self, forKey: .rpID)
 		self.allowCredentials = try container.decodeIfPresent([PublicKeyCredentialDescriptor].self, forKey: .allowCredentials)
 		self.userVerification = try container.decodeIfPresent(UserVerificationRequirement.self, forKey: .userVerification)

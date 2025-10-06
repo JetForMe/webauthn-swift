@@ -240,4 +240,28 @@ struct WebAuthnManagerAuthenticationTests {
             requireUserVerification: requireUserVerification
         )
     }
+
+
+    
+    @Test
+    func
+    publicKeyCredentialRequestOptionsCoding()
+    	throws
+	{
+		let options = PublicKeyCredentialRequestOptions(
+						challenge: [1,2,3,4,5],
+						timeout: .milliseconds(123),
+						relyingPartyID: "relyingPartyID",
+						allowCredentials: nil,
+						userVerification: nil)
+		
+		let json = try JSONEncoder().encode(options)
+		let decodedOptions = try JSONDecoder().decode(PublicKeyCredentialRequestOptions.self, from: json)
+		
+		#expect(options.challenge == decodedOptions.challenge)
+		#expect(options.timeout == decodedOptions.timeout)
+		#expect(options.relyingPartyID == decodedOptions.relyingPartyID)
+		#expect(options.allowCredentials == nil)
+		#expect(options.userVerification == nil)
+	}
 }
