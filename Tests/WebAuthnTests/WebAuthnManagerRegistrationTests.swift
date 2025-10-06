@@ -14,6 +14,7 @@
 @testable import WebAuthn
 import Testing
 import SwiftCBOR
+import Foundation
 
 struct WebAuthnManagerRegistrationTests {
     var webAuthnManager: WebAuthnManager!
@@ -439,6 +440,7 @@ struct WebAuthnManagerRegistrationTests {
         )
     }
     
+    @Test
     func
     testPublicKeyCredentialCreationOptionsCoding()
     	throws
@@ -448,18 +450,18 @@ struct WebAuthnManagerRegistrationTests {
 						user: .init(id: [5,4,3,2,1], name: "testname", displayName: "displayName"),
 						relyingParty: .init(id: "relyingPartyID", name: "relyingPartyName"),
 						publicKeyCredentialParameters: [.init(alg: .algES256)],
-						timeoutInMilliseconds: 123,
+						timeout: .milliseconds(123),
 						attestation: .none)
 		
 		let json = try JSONEncoder().encode(options)
 		let decodedOptions = try JSONDecoder().decode(PublicKeyCredentialCreationOptions.self, from: json)
 		
-		XCTAssertEqual(options.challenge, decodedOptions.challenge)
-		XCTAssertEqual(options.user, decodedOptions.user)
-		XCTAssertEqual(options.relyingParty, decodedOptions.relyingParty)
-		XCTAssertEqual(options.publicKeyCredentialParameters, decodedOptions.publicKeyCredentialParameters)
-		XCTAssertEqual(options.timeoutInMilliseconds, decodedOptions.timeoutInMilliseconds)
-		XCTAssertEqual(options.attestation, decodedOptions.attestation)
+		#expect(options.challenge == decodedOptions.challenge)
+		#expect(options.user == decodedOptions.user)
+		#expect(options.relyingParty == decodedOptions.relyingParty)
+		#expect(options.publicKeyCredentialParameters == decodedOptions.publicKeyCredentialParameters)
+		#expect(options.timeout == decodedOptions.timeout)
+		#expect(options.attestation == decodedOptions.attestation)
 	}
 }
 

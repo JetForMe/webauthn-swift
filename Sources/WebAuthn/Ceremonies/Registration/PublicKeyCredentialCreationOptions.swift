@@ -64,7 +64,14 @@ public struct PublicKeyCredentialCreationOptions: Codable, Sendable {
 		self.user = try container.decode(PublicKeyCredentialUserEntity.self, forKey: .user)
 		self.relyingParty = try container.decode(PublicKeyCredentialRelyingPartyEntity.self, forKey: .relyingParty)
 		self.publicKeyCredentialParameters = try container.decode([PublicKeyCredentialParameters].self, forKey: .publicKeyCredentialParameters)
-		self.timeout = try container.decodeIfPresent(Duration.self, forKey: .timeout)
+		if let durationMS = try container.decodeIfPresent(UInt32.self, forKey: .timeout)
+		{
+			self.timeout = .milliseconds(durationMS)
+		}
+		else
+		{
+			self.timeout = nil
+		}
 		self.attestation = try container.decode(AttestationConveyancePreference.self, forKey: .attestation)
 	}
     
