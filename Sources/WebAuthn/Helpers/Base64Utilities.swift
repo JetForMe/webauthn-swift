@@ -1,12 +1,11 @@
 //===----------------------------------------------------------------------===//
 //
-// This source file is part of the WebAuthn Swift open source project
+// This source file is part of the Swift WebAuthn open source project
 //
-// Copyright (c) 2022 the WebAuthn Swift project authors
+// Copyright (c) 2022 the Swift WebAuthn project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
-// See CONTRIBUTORS.txt for the list of WebAuthn Swift project authors
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -16,7 +15,7 @@ import Foundation
 import Logging
 
 /// Container for base64 encoded data
-public struct EncodedBase64: ExpressibleByStringLiteral, Codable, Hashable, Equatable {
+public struct EncodedBase64: ExpressibleByStringLiteral, Codable, Hashable, Equatable, Sendable {
     private let base64: String
 
     public init(_ string: String) {
@@ -27,12 +26,12 @@ public struct EncodedBase64: ExpressibleByStringLiteral, Codable, Hashable, Equa
         self.init(value)
     }
 
-    public init(from decoder: Decoder) throws {
+    public init(from decoder: any Decoder) throws {
         let container = try decoder.singleValueContainer()
         self.base64 = try container.decode(String.self)
     }
 
-    public func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: any Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(self.base64)
     }
@@ -58,7 +57,7 @@ public struct EncodedBase64: ExpressibleByStringLiteral, Codable, Hashable, Equa
 }
 
 /// Container for URL encoded base64 data
-public struct URLEncodedBase64: ExpressibleByStringLiteral, Codable, Hashable, Equatable {
+public struct URLEncodedBase64: ExpressibleByStringLiteral, Codable, Hashable, Equatable, Sendable {
     let base64URL: String
 
     /// Decodes Base64URL string and transforms result into `[UInt8]`

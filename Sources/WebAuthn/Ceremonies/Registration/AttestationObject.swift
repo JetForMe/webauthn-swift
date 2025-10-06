@@ -1,12 +1,11 @@
 //===----------------------------------------------------------------------===//
 //
-// This source file is part of the WebAuthn Swift open source project
+// This source file is part of the Swift WebAuthn open source project
 //
-// Copyright (c) 2022 the WebAuthn Swift project authors
+// Copyright (c) 2022 the Swift WebAuthn project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
-// See CONTRIBUTORS.txt for the list of WebAuthn Swift project authors
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,12 +13,12 @@
 
 import Foundation
 import Crypto
-import SwiftCBOR
+@preconcurrency import SwiftCBOR
 
 /// Contains the cryptographic attestation that a new key pair was created by that authenticator.
-public struct AttestationObject {
+public struct AttestationObject: Sendable {
     let authenticatorData: AuthenticatorData
-    let rawAuthenticatorData: Data
+    let rawAuthenticatorData: [UInt8]
     let format: AttestationFormat
     let attestationStatement: CBOR
 
@@ -30,7 +29,7 @@ public struct AttestationObject {
         supportedPublicKeyAlgorithms: [PublicKeyCredentialParameters],
         pemRootCertificatesByFormat: [AttestationFormat: [Data]] = [:]
     ) async throws -> AttestedCredentialData {
-        let relyingPartyIDHash = SHA256.hash(data: relyingPartyID.data(using: .utf8)!)
+        let relyingPartyIDHash = SHA256.hash(data: Data(relyingPartyID.utf8))
 
         guard relyingPartyIDHash == authenticatorData.relyingPartyIDHash else {
             throw WebAuthnError.relyingPartyIDHashDoesNotMatch

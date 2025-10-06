@@ -1,12 +1,11 @@
 //===----------------------------------------------------------------------===//
 //
-// This source file is part of the WebAuthn Swift open source project
+// This source file is part of the Swift WebAuthn open source project
 //
-// Copyright (c) 2022 the WebAuthn Swift project authors
+// Copyright (c) 2022 the Swift WebAuthn project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
-// See CONTRIBUTORS.txt for the list of WebAuthn Swift project authors
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -18,7 +17,7 @@ import SwiftCBOR
 /// The response from the authenticator device for the creation of a new public key credential.
 ///
 /// When decoding using `Decodable`, `clientDataJSON` and `attestationObject` are decoded from base64url to bytes.
-public struct AuthenticatorAttestationResponse {
+public struct AuthenticatorAttestationResponse: Sendable {
     /// The client data that was passed to the authenticator during the creation ceremony.
     ///
     /// When decoding using `Decodable`, this is decoded from base64url to bytes.
@@ -31,7 +30,7 @@ public struct AuthenticatorAttestationResponse {
 }
 
 extension AuthenticatorAttestationResponse: Decodable {
-    public init(from decoder: Decoder) throws {
+    public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
         clientDataJSON = try container.decodeBytesFromURLEncodedBase64(forKey: .clientDataJSON)
@@ -56,7 +55,7 @@ struct ParsedAuthenticatorAttestationResponse {
 
         // Step 11. (assembling attestationObject)
         let attestationObjectData = Data(rawResponse.attestationObject)
-        guard let decodedAttestationObject = try? CBOR.decode([UInt8](attestationObjectData)) else {
+        guard let decodedAttestationObject = try? CBOR.decode([UInt8](attestationObjectData), options: CBOROptions(maximumDepth: 16)) else {
             throw WebAuthnError.invalidAttestationObject
         }
 
@@ -75,8 +74,8 @@ struct ParsedAuthenticatorAttestationResponse {
         }
 
         attestationObject = AttestationObject(
-            authenticatorData: try AuthenticatorData(bytes: Data(authDataBytes)),
-            rawAuthenticatorData: Data(authDataBytes),
+            authenticatorData: try AuthenticatorData(bytes: authDataBytes),
+            rawAuthenticatorData: authDataBytes,
             format: attestationFormat,
             attestationStatement: attestationStatement
         )

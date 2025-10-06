@@ -1,12 +1,11 @@
 //===----------------------------------------------------------------------===//
 //
-// This source file is part of the WebAuthn Swift open source project
+// This source file is part of the Swift WebAuthn open source project
 //
-// Copyright (c) 2022 the WebAuthn Swift project authors
+// Copyright (c) 2022 the Swift WebAuthn project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
-// See CONTRIBUTORS.txt for the list of WebAuthn Swift project authors
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -27,51 +26,49 @@ import Foundation
 /// ``PublicKeyCredentialRequestOptions`` to the client.
 /// When the client has received the response from the authenticator, pass the response to
 /// `finishAuthentication()`.
-public struct WebAuthnManager {
-    private let config: Config
+public struct WebAuthnManager: Sendable {
+    private let configuration: Configuration
 
     private let challengeGenerator: ChallengeGenerator
 
-    /// Create a new WebAuthnManager using the given configuration and challenge generator.
+    /// Create a new WebAuthnManager using the given configuration.
     ///
     /// - Parameters:
-    ///   - config: The configuration to use for this manager.
-    ///   - challengeGenerator: The challenge generator to use for this manager. Defaults to a live generator.
-    public init(config: Config, challengeGenerator: ChallengeGenerator = .live) {
-        self.config = config
+    ///   - configuration: The configuration to use for this manager.
+    public init(configuration: Configuration) {
+        self.init(configuration: configuration, challengeGenerator: .live)
+    }
+    
+    package init(configuration: Configuration, challengeGenerator: ChallengeGenerator) {
+        self.configuration = configuration
         self.challengeGenerator = challengeGenerator
     }
 
     /// Generate a new set of registration data to be sent to the client.
     ///
-    /// This method will use the Relying Party information from the WebAuthnManager's config  to create ``PublicKeyCredentialCreationOptions``
+    /// This method will use the Relying Party information from the WebAuthnManager's configuration  to create ``PublicKeyCredentialCreationOptions``
     /// - Parameters:
     ///   - user: The user to register.
-    ///   - timeoutInSeconds: How long the browser should give the user to choose an authenticator. This value
-    ///     is a *hint* and may be ignored by the browser. Defaults to 60 seconds.
+    ///   - timeout: How long the browser should give the user to choose an authenticator. This value
+    ///     is a *hint* and may be ignored by the browser. Defaults to 300000 milliseconds (5 minutes).
     ///   - attestation: The Relying Party's preference regarding attestation. Defaults to `.none`.
     ///   - publicKeyCredentialParameters: A list of public key algorithms the Relying Party chooses to restrict
     ///     support to. Defaults to all supported algorithms.
     /// - Returns: Registration options ready for the browser.
     public func beginRegistration(
         user: PublicKeyCredentialUserEntity,
-        timeoutInSeconds: TimeInterval? = 3600,
+        timeout: Duration? = .seconds(5*60),
         attestation: AttestationConveyancePreference = .none,
         publicKeyCredentialParameters: [PublicKeyCredentialParameters] = .supported
     ) -> PublicKeyCredentialCreationOptions {
         let challenge = challengeGenerator.generate()
 
-        var timeoutInMilliseconds: UInt32?
-        if let timeoutInSeconds {
-            timeoutInMilliseconds = UInt32(timeoutInSeconds * 1000)
-        }
-
         return PublicKeyCredentialCreationOptions(
             challenge: challenge,
             user: user,
-            relyingParty: .init(id: config.relyingPartyID, name: config.relyingPartyName),
+            relyingParty: .init(id: configuration.relyingPartyID, name: configuration.relyingPartyName),
             publicKeyCredentialParameters: publicKeyCredentialParameters,
-            timeoutInMilliseconds: timeoutInMilliseconds,
+            timeout: timeout,
             attestation: attestation
         )
     }
@@ -103,8 +100,8 @@ public struct WebAuthnManager {
         let attestedCredentialData = try await parsedData.verify(
             storedChallenge: challenge,
             verifyUser: requireUserVerification,
-            relyingPartyID: config.relyingPartyID,
-            relyingPartyOrigin: config.relyingPartyOrigin,
+            relyingPartyID: configuration.relyingPartyID,
+            relyingPartyOrigin: configuration.relyingPartyOrigin,
             supportedPublicKeyAlgorithms: supportedPublicKeyAlgorithms,
             pemRootCertificatesByFormat: pemRootCertificatesByFormat
         )
@@ -139,19 +136,16 @@ public struct WebAuthnManager {
     ///     "user verified" flag.
     /// - Returns: Authentication options ready for the browser.
     public func beginAuthentication(
-        timeout: TimeInterval? = 60,
+        timeout: Duration? = .seconds(60),
         allowCredentials: [PublicKeyCredentialDescriptor]? = nil,
         userVerification: UserVerificationRequirement = .preferred
-    ) throws -> PublicKeyCredentialRequestOptions {
+    ) -> PublicKeyCredentialRequestOptions {
         let challenge = challengeGenerator.generate()
-        var timeoutInMilliseconds: UInt32? = nil
-        if let timeout {
-            timeoutInMilliseconds = UInt32(timeout * 1000)
-        }
+
         return PublicKeyCredentialRequestOptions(
             challenge: challenge,
-            timeout: timeoutInMilliseconds,
-            rpId: config.relyingPartyID,
+            timeout: timeout,
+            relyingPartyID: configuration.relyingPartyID,
             allowCredentials: allowCredentials,
             userVerification: userVerification
         )
@@ -175,13 +169,14 @@ public struct WebAuthnManager {
         credentialCurrentSignCount: UInt32,
         requireUserVerification: Bool = false
     ) throws -> VerifiedAuthentication {
-        guard credential.type == "public-key" else { throw WebAuthnError.invalidAssertionCredentialType }
+        guard credential.type == .publicKey
+        else { throw WebAuthnError.invalidAssertionCredentialType }
 
         let parsedAssertion = try ParsedAuthenticatorAssertionResponse(from: credential.response)
         try parsedAssertion.verify(
             expectedChallenge: expectedChallenge,
-            relyingPartyOrigin: config.relyingPartyOrigin,
-            relyingPartyID: config.relyingPartyID,
+            relyingPartyOrigin: configuration.relyingPartyOrigin,
+            relyingPartyID: configuration.relyingPartyID,
             requireUserVerification: requireUserVerification,
             credentialPublicKey: credentialPublicKey,
             credentialCurrentSignCount: credentialCurrentSignCount

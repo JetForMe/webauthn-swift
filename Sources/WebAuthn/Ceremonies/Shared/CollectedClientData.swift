@@ -1,12 +1,11 @@
 //===----------------------------------------------------------------------===//
 //
-// This source file is part of the WebAuthn Swift open source project
+// This source file is part of the Swift WebAuthn open source project
 //
-// Copyright (c) 2022 the WebAuthn Swift project authors
+// Copyright (c) 2022 the Swift WebAuthn project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
-// See CONTRIBUTORS.txt for the list of WebAuthn Swift project authors
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -16,14 +15,14 @@ import Foundation
 
 /// A parsed version of the `clientDataJSON` received from the authenticator. The `clientDataJSON` is a
 /// representation of the options we passed to the WebAuthn API (`.get()`/ `.create()`).
-public struct CollectedClientData: Codable, Hashable {
+public struct CollectedClientData: Codable, Hashable, Sendable {
     enum CollectedClientDataVerifyError: Error {
         case ceremonyTypeDoesNotMatch
         case challengeDoesNotMatch
         case originDoesNotMatch
     }
 
-    public enum CeremonyType: String, Codable {
+    public enum CeremonyType: String, Codable, Sendable {
         case create = "webauthn.create"
         case assert = "webauthn.get"
     }
@@ -35,11 +34,11 @@ public struct CollectedClientData: Codable, Hashable {
     public let challenge: URLEncodedBase64
     public let origin: String
 
-    func verify(storedChallenge: [UInt8], ceremonyType: CeremonyType, relyingPartyOrigin: String) throws {
-        guard type == ceremonyType else { throw CollectedClientDataVerifyError.ceremonyTypeDoesNotMatch }
+    func verify(storedChallenge: [UInt8], ceremonyType: CeremonyType, relyingPartyOrigin: String) throws(CollectedClientDataVerifyError) {
+        guard type == ceremonyType else { throw .ceremonyTypeDoesNotMatch }
         guard challenge == storedChallenge.base64URLEncodedString() else {
-            throw CollectedClientDataVerifyError.challengeDoesNotMatch
+            throw .challengeDoesNotMatch
         }
-        guard origin == relyingPartyOrigin else { throw CollectedClientDataVerifyError.originDoesNotMatch }
+        guard origin == relyingPartyOrigin else { throw .originDoesNotMatch }
     }
 }

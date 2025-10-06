@@ -1,12 +1,11 @@
 //===----------------------------------------------------------------------===//
 //
-// This source file is part of the WebAuthn Swift open source project
+// This source file is part of the Swift WebAuthn open source project
 //
-// Copyright (c) 2022 the WebAuthn Swift project authors
+// Copyright (c) 2022 the Swift WebAuthn project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
-// See CONTRIBUTORS.txt for the list of WebAuthn Swift project authors
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -16,9 +15,9 @@ import Foundation
 
 /// After a successful registration ceremony we pass this data back to the relying party. It contains all needed
 /// information about a WebAuthn credential for storage in e.g. a database.
-public struct Credential {
-    /// Value will always be "public-key" (for now)
-    public let type: String
+public struct Credential: Sendable {
+    /// Value will always be ``CredentialType/publicKey`` (for now)
+    public let type: CredentialType
 
     /// base64 encoded String of the credential ID bytes
     public let id: String

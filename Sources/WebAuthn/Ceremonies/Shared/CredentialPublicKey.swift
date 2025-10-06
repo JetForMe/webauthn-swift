@@ -1,12 +1,11 @@
 //===----------------------------------------------------------------------===//
 //
-// This source file is part of the WebAuthn Swift open source project
+// This source file is part of the Swift WebAuthn open source project
 //
-// Copyright (c) 2022 the WebAuthn Swift project authors
+// Copyright (c) 2022 the Swift WebAuthn project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
-// See CONTRIBUTORS.txt for the list of WebAuthn Swift project authors
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -17,13 +16,13 @@ import _CryptoExtras
 import Foundation
 import SwiftCBOR
 
-protocol PublicKey {
+protocol PublicKey: Sendable {
     var algorithm: COSEAlgorithmIdentifier { get }
     /// Verify a signature was signed with the private key corresponding to the public key.
-    func verify(signature: Data, data: Data) throws
+    func verify(signature: some DataProtocol, data: some DataProtocol) throws
 }
 
-enum CredentialPublicKey {
+enum CredentialPublicKey: Sendable {
     case okp(OKPPublicKey)
     case ec2(EC2PublicKey)
     case rsa(RSAPublicKeyData)
@@ -40,7 +39,7 @@ enum CredentialPublicKey {
     }
 
     init(publicKeyBytes: [UInt8]) throws {
-        guard let publicKeyObject = try CBOR.decode(publicKeyBytes) else {
+        guard let publicKeyObject = try CBOR.decode(publicKeyBytes, options: CBOROptions(maximumDepth: 16)) else {
             throw WebAuthnError.badPublicKeyBytes
         }
 
@@ -50,8 +49,8 @@ enum CredentialPublicKey {
             self = .ec2(EC2PublicKey(
                 algorithm: .algES256,
                 curve: .p256,
-                xCoordinate: Data(Array(publicKeyBytes[1...33])),
-                yCoordinate: Data(Array(publicKeyBytes[33...65]))
+                xCoordinate: Array(publicKeyBytes[1...33]),
+                yCoordinate: Array(publicKeyBytes[33...65])
             ))
             return
         }
@@ -77,8 +76,7 @@ enum CredentialPublicKey {
         case .ellipticKey:
             self = try .ec2(EC2PublicKey(publicKeyObject: publicKeyObject, algorithm: algorithm))
         case .rsaKey:
-            throw WebAuthnError.unsupported
-            // self = try .rsa(RSAPublicKeyData(publicKeyObject: publicKeyObject, algorithm: algorithm))
+            self = try .rsa(RSAPublicKeyData(publicKeyObject: publicKeyObject, algorithm: algorithm))
         case .octetKey:
             throw WebAuthnError.unsupported
             // self = try .okp(OKPPublicKey(publicKeyObject: publicKeyObject, algorithm: algorithm))
@@ -86,30 +84,30 @@ enum CredentialPublicKey {
     }
 
     /// Verify a signature was signed with the private key corresponding to the provided public key.
-    func verify(signature: Data, data: Data) throws {
+    func verify(signature: some DataProtocol, data: some DataProtocol) throws {
         try key.verify(signature: signature, data: data)
     }
 }
 
-struct EC2PublicKey: PublicKey {
+struct EC2PublicKey: PublicKey, Sendable {
     let algorithm: COSEAlgorithmIdentifier
     /// The curve on which we derive the signature from.
     let curve: COSECurve
     /// A byte string 32 bytes in length that holds the x coordinate of the key.
-    let xCoordinate: Data
+    let xCoordinate: [UInt8]
     /// A byte string 32 bytes in length that holds the y coordinate of the key.
-    let yCoordinate: Data
+    let yCoordinate: [UInt8]
 
-    var rawRepresentation: Data { xCoordinate + yCoordinate }
+    var rawRepresentation: [UInt8] { xCoordinate + yCoordinate }
 
-    init(algorithm: COSEAlgorithmIdentifier, curve: COSECurve, xCoordinate: Data, yCoordinate: Data) {
+    init(algorithm: COSEAlgorithmIdentifier, curve: COSECurve, xCoordinate: [UInt8], yCoordinate: [UInt8]) {
         self.algorithm = algorithm
         self.curve = curve
         self.xCoordinate = xCoordinate
         self.yCoordinate = yCoordinate
     }
 
-    init(publicKeyObject: CBOR, algorithm: COSEAlgorithmIdentifier) throws {
+    init(publicKeyObject: CBOR, algorithm: COSEAlgorithmIdentifier) throws(WebAuthnError) {
         self.algorithm = algorithm
 
         // Curve is key -1 - or -0 for SwiftCBOR
@@ -118,23 +116,23 @@ struct EC2PublicKey: PublicKey {
         guard let curveRaw = publicKeyObject[COSEKey.crv.cbor],
             case let .unsignedInt(curve) = curveRaw,
             let coseCurve = COSECurve(rawValue: curve) else {
-            throw WebAuthnError.invalidCurve
+            throw .invalidCurve
         }
         self.curve = coseCurve
 
         guard let xCoordRaw = publicKeyObject[COSEKey.x.cbor],
               case let .byteString(xCoordinateBytes) = xCoordRaw else {
-            throw WebAuthnError.invalidXCoordinate
+            throw .invalidXCoordinate
         }
-        xCoordinate = Data(xCoordinateBytes)
+        xCoordinate = xCoordinateBytes
         guard let yCoordRaw = publicKeyObject[COSEKey.y.cbor],
               case let .byteString(yCoordinateBytes) = yCoordRaw else {
-            throw WebAuthnError.invalidYCoordinate
+            throw .invalidYCoordinate
         }
-        yCoordinate = Data(yCoordinateBytes)
+        yCoordinate = yCoordinateBytes
     }
 
-    func verify(signature: Data, data: Data) throws {
+    func verify(signature: some DataProtocol, data: some DataProtocol) throws {
         switch algorithm {
         case .algES256:
             let ecdsaSignature = try P256.Signing.ECDSASignature(derRepresentation: signature)
@@ -154,82 +152,78 @@ struct EC2PublicKey: PublicKey {
                 .isValidSignature(ecdsaSignature, for: data) else {
                 throw WebAuthnError.invalidSignature
             }
+        default:
+            throw WebAuthnError.unsupportedCredentialPublicKeyAlgorithm
         }
     }
 }
 
-/// Currently not in use
-struct RSAPublicKeyData: PublicKey {
+struct RSAPublicKeyData: PublicKey, Sendable {
     let algorithm: COSEAlgorithmIdentifier
     // swiftlint:disable:next identifier_name
-    let n: Data
+    let n: [UInt8]
     // swiftlint:disable:next identifier_name
-    let e: Data
+    let e: [UInt8]
 
-    var rawRepresentation: Data { n + e }
+    var rawRepresentation: [UInt8] { n + e }
 
-    init(publicKeyObject: CBOR, algorithm: COSEAlgorithmIdentifier) throws {
+    init(publicKeyObject: CBOR, algorithm: COSEAlgorithmIdentifier) throws(WebAuthnError) {
         self.algorithm = algorithm
 
         guard let nRaw = publicKeyObject[COSEKey.n.cbor],
               case let .byteString(nBytes) = nRaw else {
-            throw WebAuthnError.invalidModulus
+            throw .invalidModulus
         }
-        n = Data(nBytes)
+        n = nBytes
 
         guard let eRaw = publicKeyObject[COSEKey.e.cbor],
               case let .byteString(eBytes) = eRaw else {
-            throw WebAuthnError.invalidExponent
+            throw .invalidExponent
         }
-        e = Data(eBytes)
+        e = eBytes
     }
 
-    func verify(signature: Data, data: Data) throws {
-        throw WebAuthnError.unsupported
-        // let rsaSignature = _RSA.Signing.RSASignature(derRepresentation: signature)
+    func verify(signature: some DataProtocol, data: some DataProtocol) throws {
+        let rsaSignature = _RSA.Signing.RSASignature(rawRepresentation: signature)
 
-        // var rsaPadding: _RSA.Signing.Padding
-        // switch algorithm {
-        // case .algRS1, .algRS256, .algRS384, .algRS512:
-        //     rsaPadding = .insecurePKCS1v1_5
-        // case .algPS256, .algPS384, .algPS512:
-        //     rsaPadding = .PSS
-        // default:
-        //     throw WebAuthnError.unsupportedCOSEAlgorithmForRSAPublicKey
-        // }
+        var rsaPadding: _RSA.Signing.Padding
+        switch algorithm {
+        case .algRS1, .algRS256, .algRS384, .algRS512:
+            rsaPadding = .insecurePKCS1v1_5
+        case .algPS256, .algPS384, .algPS512:
+            rsaPadding = .PSS
+        default:
+            throw WebAuthnError.unsupportedCOSEAlgorithmForRSAPublicKey
+        }
 
-        // guard try _RSA.Signing.PublicKey(rawRepresentation: rawRepresentation).isValidSignature(
-        //     rsaSignature,
-        //     for: data,
-        //     padding: rsaPadding
-        // ) else {
-        //     throw WebAuthnError.invalidSignature
-        // }
+        let publicKey = try _RSA.Signing.PublicKey(n: n, e: e)
+        guard publicKey.isValidSignature(rsaSignature, for: data, padding: rsaPadding)
+        else { throw WebAuthnError.invalidSignature }
     }
 }
 
 /// Currently not in use
-struct OKPPublicKey: PublicKey {
+struct OKPPublicKey: PublicKey, Sendable {
     let algorithm: COSEAlgorithmIdentifier
     let curve: UInt64
     let xCoordinate: [UInt8]
 
-    init(publicKeyObject: CBOR, algorithm: COSEAlgorithmIdentifier) throws {
+    init(publicKeyObject: CBOR, algorithm: COSEAlgorithmIdentifier) throws(WebAuthnError) {
         self.algorithm = algorithm
         // Curve is key -1, or NegativeInt 0 for SwiftCBOR
         guard let curveRaw = publicKeyObject[.negativeInt(0)], case let .unsignedInt(curve) = curveRaw else {
-            throw WebAuthnError.invalidCurve
+            throw .invalidCurve
         }
         self.curve = curve
         // X Coordinate is key -2, or NegativeInt 1 for SwiftCBOR
         guard let xCoordRaw = publicKeyObject[.negativeInt(1)],
             case let .byteString(xCoordinateBytes) = xCoordRaw else {
-            throw WebAuthnError.invalidXCoordinate
+            throw .invalidXCoordinate
         }
         xCoordinate = xCoordinateBytes
     }
 
-    func verify(signature: Data, data: Data) throws {
+    func verify(signature: some DataProtocol, data: some DataProtocol) throws {
         throw WebAuthnError.unsupported
     }
 }

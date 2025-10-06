@@ -11,14 +11,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+import Testing
+@testable import WebAuthn
 
-/// The Key Type derived from the IANA COSE AuthData
-enum COSEKeyType: UInt64, RawRepresentable, Sendable {
-    /// OctetKey is an Octet Key
-	case octetKey = 1
-	/// EllipticKey is an Elliptic Curve Public Key
-	case ellipticKey = 2
-	/// RSAKey is an RSA Public Key
-	case rsaKey = 3
+struct DurationTests {
+    @Test
+    func milliseconds() {
+        #expect(Duration.milliseconds(1234).milliseconds == 1234)
+        #expect(Duration.milliseconds(-1234).milliseconds == -1234)
+        #expect(Duration.microseconds(12345).milliseconds == 12)
+        #expect(Duration.microseconds(-12345).milliseconds == -12)
+    }
 }

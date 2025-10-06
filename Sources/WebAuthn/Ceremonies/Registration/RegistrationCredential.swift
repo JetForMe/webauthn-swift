@@ -1,12 +1,11 @@
 //===----------------------------------------------------------------------===//
 //
-// This source file is part of the WebAuthn Swift open source project
+// This source file is part of the Swift WebAuthn open source project
 //
-// Copyright (c) 2022 the WebAuthn Swift project authors
+// Copyright (c) 2022 the Swift WebAuthn project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
-// See CONTRIBUTORS.txt for the list of WebAuthn Swift project authors
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -18,12 +17,12 @@ import Crypto
 /// The unprocessed response received from `navigator.credentials.create()`.
 ///
 /// When decoding using `Decodable`, the `rawID` is decoded from base64url to bytes.
-public struct RegistrationCredential {
+public struct RegistrationCredential: Sendable {
     /// The credential ID of the newly created credential.
     public let id: URLEncodedBase64
 
-    /// Value will always be "public-key" (for now)
-    public let type: String
+    /// Value will always be ``CredentialType/publicKey`` (for now)
+    public let type: CredentialType
 
     /// The raw credential ID of the newly created credential.
     public let rawID: [UInt8]
@@ -33,11 +32,11 @@ public struct RegistrationCredential {
 }
 
 extension RegistrationCredential: Decodable {
-    public init(from decoder: Decoder) throws {
+    public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
         id = try container.decode(URLEncodedBase64.self, forKey: .id)
-        type = try container.decode(String.self, forKey: .type)
+        type = try container.decode(CredentialType.self, forKey: .type)
         guard let rawID = try container.decode(URLEncodedBase64.self, forKey: .rawID).decodedBytes else {
             throw DecodingError.dataCorruptedError(
                 forKey: .rawID,
@@ -61,8 +60,8 @@ extension RegistrationCredential: Decodable {
 struct ParsedCredentialCreationResponse {
     let id: URLEncodedBase64
     let rawID: Data
-    /// Value will always be "public-key" (for now)
-    let type: String
+    /// Value will always be ``CredentialType/publicKey`` (for now)
+    let type: CredentialType
     let raw: AuthenticatorAttestationResponse
     let response: ParsedAuthenticatorAttestationResponse
 
@@ -71,9 +70,8 @@ struct ParsedCredentialCreationResponse {
         id = rawResponse.id
         rawID = Data(rawResponse.rawID)
 
-        guard rawResponse.type == "public-key" else {
-            throw WebAuthnError.invalidCredentialCreationType
-        }
+        guard rawResponse.type == .publicKey 
+        else { throw WebAuthnError.invalidCredentialCreationType }
         type = rawResponse.type
 
         raw = rawResponse.attestationResponse

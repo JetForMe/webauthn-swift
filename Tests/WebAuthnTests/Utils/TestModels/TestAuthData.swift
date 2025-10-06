@@ -1,12 +1,11 @@
 //===----------------------------------------------------------------------===//
 //
-// This source file is part of the WebAuthn Swift open source project
+// This source file is part of the Swift WebAuthn open source project
 //
-// Copyright (c) 2023 the WebAuthn Swift project authors
+// Copyright (c) 2023 the Swift WebAuthn project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
-// See CONTRIBUTORS.txt for the list of WebAuthn Swift project authors
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -17,7 +16,7 @@ import Crypto
 import WebAuthn
 
 struct TestAuthData {
-    var rpIDHash: [UInt8]?
+    var relyingPartyIDHash: [UInt8]?
     var flags: UInt8?
     var counter: [UInt8]?
     var attestedCredData: [UInt8]?
@@ -25,8 +24,8 @@ struct TestAuthData {
 
     var byteArrayRepresentation: [UInt8] {
         var value: [UInt8] = []
-        if let rpIDHash {
-            value += rpIDHash
+        if let relyingPartyIDHash {
+            value += relyingPartyIDHash
         }
         if let flags {
             value += [flags]
@@ -59,39 +58,51 @@ struct TestAuthDataBuilder {
         build().byteArrayRepresentation.base64URLEncodedString()
     }
 
-    func validMock() -> Self {
+    func validMockECDSA() -> Self {
         self
-            .rpIDHash(fromRpID: "example.com")
-            .flags(0b01000101)
+            .relyingPartyIDHash(fromRelyingPartyID: "example.com")
+            .flags(0b11000101)
             .counter([0b00000000, 0b00000000, 0b00000000, 0b00000000])
             .attestedCredData(
-                aaguid: [UInt8](repeating: 0, count: 16),
                 credentialIDLength: [0b00000000, 0b00000001],
                 credentialID: [0b00000001],
-                credentialPublicKey: TestCredentialPublicKeyBuilder().validMock().buildAsByteArray()
+                credentialPublicKey: TestCredentialPublicKeyBuilder().validMockECDSA().buildAsByteArray()
+            )
+            .extensions([UInt8](repeating: 0, count: 20))
+    }
+    
+    func validMockRSA() -> Self {
+        self
+            .relyingPartyIDHash(fromRelyingPartyID: "example.com")
+            .flags(0b11000101)
+            .counter([0b00000000, 0b00000000, 0b00000000, 0b00000000])
+            .attestedCredData(
+                credentialIDLength: [0b00000000, 0b00000001],
+                credentialID: [0b00000001],
+                credentialPublicKey: TestCredentialPublicKeyBuilder().validMockRSA().buildAsByteArray()
             )
             .extensions([UInt8](repeating: 0, count: 20))
     }
 
     /// Creates a valid authData
     ///
-    /// rpID = "example.com", user
+    /// relyingPartyID = "example.com", user
     /// flags "extension data included", "user verified" and "user present" are set
     /// sign count is set to 0
     /// random extension data is included
     func validAuthenticationMock() -> Self {
         self
-            .rpIDHash(fromRpID: "example.com")
+            .relyingPartyIDHash(fromRelyingPartyID: "example.com")
             .flags(0b10000101)
             .counter([0b00000000, 0b00000000, 0b00000000, 0b00000000])
             .extensions([UInt8](repeating: 0, count: 20))
     }
 
-    func rpIDHash(fromRpID rpID: String) -> Self {
-        let rpIDData = rpID.data(using: .utf8)!
-        let rpIDHash = SHA256.hash(data: rpIDData)
+    func relyingPartyIDHash(fromRelyingPartyID relyingPartyID: String) -> Self {
+        let relyingPartyIDData = Data(relyingPartyID.utf8)
+        let relyingPartyIDHash = SHA256.hash(data: relyingPartyIDData)
         var temp = self
-        temp.wrapped.rpIDHash = [UInt8](rpIDHash)
+        temp.wrapped.relyingPartyIDHash = [UInt8](relyingPartyIDHash)
         return temp
     }
 
@@ -110,18 +121,17 @@ struct TestAuthDataBuilder {
         return temp
     }
 
-    /// aaguid length = 16
     /// credentialIDLength length = 2
     /// credentialID length = credentialIDLength
     /// credentialPublicKey = variable
     func attestedCredData(
-        aaguid: [UInt8] = [UInt8](repeating: 0, count: 16),
+        authenticatorAttestationGUID: AAGUID = .anonymous,
         credentialIDLength: [UInt8] = [0b00000000, 0b00000001],
         credentialID: [UInt8] = [0b00000001],
         credentialPublicKey: [UInt8]
     ) -> Self {
         var temp = self
-        temp.wrapped.attestedCredData = aaguid + credentialIDLength + credentialID + credentialPublicKey
+        temp.wrapped.attestedCredData = authenticatorAttestationGUID.bytes + credentialIDLength + credentialID + credentialPublicKey
         return temp
     }
 
@@ -139,6 +149,7 @@ struct TestAuthDataBuilder {
 
     func noExtensionData() -> Self {
         var temp = self
+        temp.wrapped.flags = temp.wrapped.flags.map{ $0 & 0b01111111 }
         temp.wrapped.extensions = nil
         return temp
     }
@@ -147,7 +158,7 @@ struct TestAuthDataBuilder {
 extension TestAuthData {
     static var valid: Self {
         TestAuthData(
-            rpIDHash: [1],
+            relyingPartyIDHash: [1],
             flags: 1,
             counter: [1],
             attestedCredData: [2],

@@ -1,25 +1,29 @@
 //===----------------------------------------------------------------------===//
 //
-// This source file is part of the WebAuthn Swift open source project
+// This source file is part of the Swift WebAuthn open source project
 //
-// Copyright (c) 2023 the WebAuthn Swift project authors
+// Copyright (c) 2023 the Swift WebAuthn project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
-// See CONTRIBUTORS.txt for the list of WebAuthn Swift project authors
 //
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
 
 @testable import WebAuthn
-import XCTest
+import Foundation
+import Testing
 import Crypto
 
-final class WebAuthnManagerIntegrationTests: XCTestCase {
+struct WebAuthnManagerIntegrationTests {
     // swiftlint:disable:next function_body_length
-    func testRegistrationAndAuthenticationSucceeds() async throws {
-        let config = WebAuthnManager.Config(
+    @Test(arguments: [
+        TestKeyConfiguration.ecdsa,
+        TestKeyConfiguration.rsa,
+    ])
+    func registrationAndAuthenticationSucceeds(keyConfiguration: TestKeyConfiguration) async throws {
+        let configuration = WebAuthnManager.Configuration(
             relyingPartyID: "example.com",
             relyingPartyName: "Example RP",
             relyingPartyOrigin: "https://example.com"
@@ -27,45 +31,45 @@ final class WebAuthnManagerIntegrationTests: XCTestCase {
 
         let mockChallenge = [UInt8](repeating: 0, count: 5)
         let challengeGenerator = ChallengeGenerator(generate: { mockChallenge })
-        let webAuthnManager = WebAuthnManager(config: config, challengeGenerator: challengeGenerator)
+        let webAuthnManager = WebAuthnManager(configuration: configuration, challengeGenerator: challengeGenerator)
 
         // Step 1.: Begin Registration
         let mockUser = PublicKeyCredentialUserEntity.mock
-        let timeout: TimeInterval = 1234
+        let timeout: Duration = .seconds(1234)
         let attestationPreference = AttestationConveyancePreference.none
         let publicKeyCredentialParameters: [PublicKeyCredentialParameters] = .supported
 
         let registrationOptions = webAuthnManager.beginRegistration(
             user: mockUser,
-            timeoutInSeconds: timeout,
+            timeout: timeout,
             attestation: attestationPreference,
             publicKeyCredentialParameters: publicKeyCredentialParameters
         )
 
-        XCTAssertEqual(registrationOptions.challenge, mockChallenge)
-        XCTAssertEqual(registrationOptions.user.id, mockUser.id)
-        XCTAssertEqual(registrationOptions.user.name, mockUser.name)
-        XCTAssertEqual(registrationOptions.user.displayName, mockUser.displayName)
-        XCTAssertEqual(registrationOptions.attestation, attestationPreference)
-        XCTAssertEqual(registrationOptions.relyingParty.id, config.relyingPartyID)
-        XCTAssertEqual(registrationOptions.relyingParty.name, config.relyingPartyName)
-        XCTAssertEqual(registrationOptions.timeoutInMilliseconds, UInt32(timeout * 1000))
-        XCTAssertEqual(registrationOptions.publicKeyCredentialParameters, publicKeyCredentialParameters)
+        #expect(registrationOptions.challenge == mockChallenge)
+        #expect(registrationOptions.user.id == mockUser.id)
+        #expect(registrationOptions.user.name == mockUser.name)
+        #expect(registrationOptions.user.displayName == mockUser.displayName)
+        #expect(registrationOptions.attestation == attestationPreference)
+        #expect(registrationOptions.relyingParty.id == configuration.relyingPartyID)
+        #expect(registrationOptions.relyingParty.name == configuration.relyingPartyName)
+        #expect(registrationOptions.timeout == timeout)
+        #expect(registrationOptions.publicKeyCredentialParameters == publicKeyCredentialParameters)
 
         // Now send `registrationOptions` to client, which in turn will send the authenticator's response back to us:
         // The following lines reflect what an authenticator normally produces
         let mockCredentialID = [UInt8](repeating: 1, count: 10)
         let mockClientDataJSON = TestClientDataJSON(challenge: mockChallenge.base64URLEncodedString())
-        let mockCredentialPublicKey = TestCredentialPublicKeyBuilder().validMock().buildAsByteArray()
-        let mockAttestationObject = TestAttestationObjectBuilder().validMock().authData(
-            TestAuthDataBuilder().validMock()
+        let mockCredentialPublicKey = keyConfiguration.credentialPublicKey
+        let mockAttestationObject = keyConfiguration.attestationObjectBuilder
+            .authData { $0
                 .attestedCredData(credentialPublicKey: mockCredentialPublicKey)
                 .noExtensionData()
-        ).build().cborEncoded
+            }.build().cborEncoded
 
         let registrationResponse = RegistrationCredential(
             id: mockCredentialID.base64URLEncodedString(),
-            type: "public-key",
+            type: .publicKey,
             rawID: mockCredentialID,
             attestationResponse: AuthenticatorAttestationResponse(
                 clientDataJSON: mockClientDataJSON.jsonBytes,
@@ -83,39 +87,39 @@ final class WebAuthnManagerIntegrationTests: XCTestCase {
             confirmCredentialIDNotRegisteredYet: { _ in true }
         )
 
-        XCTAssertEqual(credential.id, mockCredentialID.base64EncodedString().asString())
-        XCTAssertEqual(credential.attestationClientDataJSON.type, .create)
-        XCTAssertEqual(credential.attestationClientDataJSON.origin, mockClientDataJSON.origin)
-        XCTAssertEqual(credential.attestationClientDataJSON.challenge, mockChallenge.base64URLEncodedString())
-        XCTAssertEqual(credential.isBackedUp, false)
-        XCTAssertEqual(credential.signCount, 0)
-        XCTAssertEqual(credential.type, "public-key")
-        XCTAssertEqual(credential.publicKey, mockCredentialPublicKey)
+        #expect(credential.id == mockCredentialID.base64EncodedString().asString())
+        #expect(credential.attestationClientDataJSON.type == .create)
+        #expect(credential.attestationClientDataJSON.origin == mockClientDataJSON.origin)
+        #expect(credential.attestationClientDataJSON.challenge == mockChallenge.base64URLEncodedString())
+        #expect(credential.isBackedUp == false)
+        #expect(credential.signCount == 0)
+        #expect(credential.type == .publicKey)
+        #expect(credential.publicKey == mockCredentialPublicKey)
 
         // Step 3.: Begin Authentication
-        let authenticationTimeout: TimeInterval = 4567
+        let authenticationTimeout: Duration = .seconds(4567)
         let userVerification: UserVerificationRequirement = .preferred
         let rememberedCredentials = [PublicKeyCredentialDescriptor(
-            type: "public-key",
+            type: .publicKey,
             id: [UInt8](URLEncodedBase64(credential.id).urlDecoded.decoded!)
         )]
 
-        let authenticationOptions = try webAuthnManager.beginAuthentication(
+        let authenticationOptions = webAuthnManager.beginAuthentication(
             timeout: authenticationTimeout,
             allowCredentials: rememberedCredentials,
             userVerification: userVerification
         )
 
-        XCTAssertEqual(authenticationOptions.rpId, config.relyingPartyID)
-        XCTAssertEqual(authenticationOptions.timeout, UInt32(authenticationTimeout * 1000)) // timeout is in milliseconds
-        XCTAssertEqual(authenticationOptions.challenge, mockChallenge)
-        XCTAssertEqual(authenticationOptions.userVerification, userVerification)
-        XCTAssertEqual(authenticationOptions.allowCredentials, rememberedCredentials)
+        #expect(authenticationOptions.relyingPartyID == configuration.relyingPartyID)
+        #expect(authenticationOptions.timeout == authenticationTimeout)
+        #expect(authenticationOptions.challenge == mockChallenge)
+        #expect(authenticationOptions.userVerification == userVerification)
+        #expect(authenticationOptions.allowCredentials == rememberedCredentials)
 
         // Now send `authenticationOptions` to client, which in turn will send the authenticator's response back to us:
         // The following lines reflect what an authenticator normally produces
         let authenticatorData = TestAuthDataBuilder().validAuthenticationMock()
-            .rpIDHash(fromRpID: config.relyingPartyID)
+            .relyingPartyIDHash(fromRelyingPartyID: configuration.relyingPartyID)
             .counter([0, 0, 0, 1]) // we authenticated once now, so authenticator likely increments the sign counter
             .build()
             .byteArrayRepresentation
@@ -131,7 +135,7 @@ final class WebAuthnManagerIntegrationTests: XCTestCase {
         ).jsonBytes
         let clientDataHash = SHA256.hash(data: clientData)
         let signatureBase = Data(authenticatorData + clientDataHash)
-        let signature = try TestECCKeyPair.signature(data: signatureBase).derRepresentation
+        let signature = try keyConfiguration.signer.sign(data: signatureBase)
 
         let authenticationCredential = AuthenticationCredential(
             id: mockCredentialID.base64URLEncodedString(),
@@ -143,8 +147,8 @@ final class WebAuthnManagerIntegrationTests: XCTestCase {
                 userHandle: mockUser.id,
                 attestationObject: nil
             ),
-            authenticatorAttachment: "platform",
-            type: "public-key"
+            authenticatorAttachment: .platform,
+            type: .publicKey
         )
 
         // Step 4.: Finish Authentication
@@ -152,15 +156,15 @@ final class WebAuthnManagerIntegrationTests: XCTestCase {
         let successfullAuthentication = try webAuthnManager.finishAuthentication(
             credential: authenticationCredential,
             expectedChallenge: mockChallenge,
-            credentialPublicKey: mockCredentialPublicKey,
+            credentialPublicKey: keyConfiguration.credentialPublicKey,
             credentialCurrentSignCount: oldSignCount,
             requireUserVerification: false
         )
 
-        XCTAssertEqual(successfullAuthentication.newSignCount, 1)
-        XCTAssertEqual(successfullAuthentication.credentialBackedUp, false)
-        XCTAssertEqual(successfullAuthentication.credentialDeviceType, .singleDevice)
-        XCTAssertEqual(successfullAuthentication.credentialID, mockCredentialID.base64URLEncodedString())
+        #expect(successfullAuthentication.newSignCount == 1)
+        #expect(successfullAuthentication.credentialBackedUp == false)
+        #expect(successfullAuthentication.credentialDeviceType == .singleDevice)
+        #expect(successfullAuthentication.credentialID == mockCredentialID.base64URLEncodedString())
 
         // We did it!
     }

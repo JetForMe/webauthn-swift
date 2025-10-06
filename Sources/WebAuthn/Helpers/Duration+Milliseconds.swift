@@ -11,14 +11,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
-
-/// The Key Type derived from the IANA COSE AuthData
-enum COSEKeyType: UInt64, RawRepresentable, Sendable {
-    /// OctetKey is an Octet Key
-	case octetKey = 1
-	/// EllipticKey is an Elliptic Curve Public Key
-	case ellipticKey = 2
-	/// RSAKey is an RSA Public Key
-	case rsaKey = 3
+extension Duration {
+    /// The value of a positive duration in milliseconds, suitable to be encoded in WebAuthn types.
+    var milliseconds: Int64 {
+        let (seconds, attoseconds) = self.components
+        return Int64(seconds * 1000) + Int64(attoseconds/1_000_000_000_000_000)
+    }
 }

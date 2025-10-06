@@ -1,12 +1,11 @@
 //===----------------------------------------------------------------------===//
 //
-// This source file is part of the WebAuthn Swift open source project
+// This source file is part of the Swift WebAuthn open source project
 //
-// Copyright (c) 2022 the WebAuthn Swift project authors
+// Copyright (c) 2022 the Swift WebAuthn project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
-// See CONTRIBUTORS.txt for the list of WebAuthn Swift project authors
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -18,7 +17,7 @@ import Crypto
 /// This is what the authenticator device returned after we requested it to authenticate a user.
 ///
 /// When decoding using `Decodable`, byte arrays are decoded from base64url to bytes.
-public struct AuthenticatorAssertionResponse {
+public struct AuthenticatorAssertionResponse: Sendable {
     /// Representation of what we passed to `navigator.credentials.get()`
     ///
     /// When decoding using `Decodable`, this is decoded from base64url to bytes.
@@ -50,7 +49,7 @@ public struct AuthenticatorAssertionResponse {
 }
 
 extension AuthenticatorAssertionResponse: Decodable {
-    public init(from decoder: Decoder) throws {
+    public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
         clientDataJSON = try container.decodeBytesFromURLEncodedBase64(forKey: .clientDataJSON)
@@ -69,19 +68,19 @@ extension AuthenticatorAssertionResponse: Decodable {
     }
 }
 
-struct ParsedAuthenticatorAssertionResponse {
-    let rawClientData: Data
+struct ParsedAuthenticatorAssertionResponse: Sendable {
+    let rawClientData: [UInt8]
     let clientData: CollectedClientData
-    let rawAuthenticatorData: Data
+    let rawAuthenticatorData: [UInt8]
     let authenticatorData: AuthenticatorData
     let signature: URLEncodedBase64
     let userHandle: [UInt8]?
 
     init(from authenticatorAssertionResponse: AuthenticatorAssertionResponse) throws {
-        rawClientData = Data(authenticatorAssertionResponse.clientDataJSON)
-        clientData = try JSONDecoder().decode(CollectedClientData.self, from: rawClientData)
+        rawClientData = authenticatorAssertionResponse.clientDataJSON
+        clientData = try JSONDecoder().decode(CollectedClientData.self, from: Data(rawClientData))
 
-        rawAuthenticatorData = Data(authenticatorAssertionResponse.authenticatorData)
+        rawAuthenticatorData = authenticatorAssertionResponse.authenticatorData
         authenticatorData = try AuthenticatorData(bytes: rawAuthenticatorData)
         signature = authenticatorAssertionResponse.signature.base64URLEncodedString()
         userHandle = authenticatorAssertionResponse.userHandle
@@ -102,11 +101,9 @@ struct ParsedAuthenticatorAssertionResponse {
             relyingPartyOrigin: relyingPartyOrigin
         )
 
-        guard let expectedRpIDData = relyingPartyID.data(using: .utf8) else {
-            throw WebAuthnError.invalidRelyingPartyID
-        }
-        let expectedRpIDHash = SHA256.hash(data: expectedRpIDData)
-        guard expectedRpIDHash == authenticatorData.relyingPartyIDHash else {
+        let expectedRelyingPartyIDData = Data(relyingPartyID.utf8)
+        let expectedRelyingPartyIDHash = SHA256.hash(data: expectedRelyingPartyIDData)
+        guard expectedRelyingPartyIDHash == authenticatorData.relyingPartyIDHash else {
             throw WebAuthnError.relyingPartyIDHashDoesNotMatch
         }
 
